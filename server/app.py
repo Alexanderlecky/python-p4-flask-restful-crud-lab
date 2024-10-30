@@ -26,6 +26,9 @@ class Plants(Resource):
     def post(self):
         data = request.get_json()
 
+        if not all(k in data for k in ('name', 'image', 'price')):
+            return make_response(jsonify({"error": "Missing data"}), 400)
+
         new_plant = Plant(
             name=data['name'],
             image=data['image'],
@@ -45,30 +48,28 @@ class PlantByID(Resource):
 
     def get(self, id):
         plant = Plant.query.filter_by(id=id).first()
-        if plant:
-            return make_response(jsonify(plant.to_dict()), 200)
-        return make_response(jsonify({"error": "Plant not found"}), 404)
+        if plant is None:
+            return make_response(jsonify({"error": "Plant not found"}), 404)
+        return make_response(jsonify(plant.to_dict()), 200)
 
     def patch(self, id):
+        data = request.get_json()
         plant = Plant.query.filter_by(id=id).first()
-
-        if not plant:
+        if plant is None:
             return make_response(jsonify({"error": "Plant not found"}), 404)
 
-        data = request.get_json()
+        for attr in data:
+            if hasattr(plant, attr):
+                setattr(plant, attr, data[attr])
 
-        # Update the plant's 'is_in_stock' field if provided
-        if 'is_in_stock' in data:
-            plant.is_in_stock = data['is_in_stock']
-
+        db.session.add(plant)
         db.session.commit()
 
-        return make_response(jsonify(plant.to_dict()), 200)
+        return make_response(plant.to_dict(), 200)
 
     def delete(self, id):
         plant = Plant.query.filter_by(id=id).first()
-
-        if not plant:
+        if plant is None:
             return make_response(jsonify({"error": "Plant not found"}), 404)
 
         db.session.delete(plant)
